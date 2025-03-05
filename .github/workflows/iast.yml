@@ -124,12 +124,29 @@ jobs:
           # Tampilkan hasil Snyk secara langsung
           snyk code test || true >> $GITHUB_STEP_SUMMARY
           
-          # Tambahan informasi dari hasil JSON jika tersedia
-          if [ -f snyk-output.json ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Detail kerentanan:" >> $GITHUB_STEP_SUMMARY
-            jq -r '.vulnerabilities[] | "- " + .title + " (" + .severity + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada detail kerentanan yang tersedia" >> $GITHUB_STEP_SUMMARY
-          fi
+          # Debug: periksa isi file JSON
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Debug Output JSON" >> $GITHUB_STEP_SUMMARY
+          echo "Struktur JSON (key level teratas):" >> $GITHUB_STEP_SUMMARY
+          jq 'keys' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak dapat memproses file JSON" >> $GITHUB_STEP_SUMMARY
+          
+          # Coba ekstrak kerentanan dengan berbagai path yang mungkin
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Detail Kerentanan" >> $GITHUB_STEP_SUMMARY
+          
+          # Metode 1: Struktur standar
+          echo "Metode 1 - vulnerabilities langsung:" >> $GITHUB_STEP_SUMMARY
+          jq -r '.vulnerabilities[] | "- " + (.title // "No title") + " (" + (.severity // "unknown") + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada vulnerabilities di level atas" >> $GITHUB_STEP_SUMMARY
+          
+          # Metode 2: Struktur alternatif untuk Snyk Code
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Metode 2 - issues.vulnerabilities:" >> $GITHUB_STEP_SUMMARY
+          jq -r '.issues.vulnerabilities[] | "- " + (.title // "No title") + " (" + (.severity // "unknown") + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada issues.vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          
+          # Metode 3: Struktur results seperti SARIF
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Metode 3 - results:" >> $GITHUB_STEP_SUMMARY
+          jq -r '.runs[].results[] | "- " + (.message.text // "No description") + " (severity level: " + (.level // "unknown") + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada struktur results" >> $GITHUB_STEP_SUMMARY
           
           echo '```' >> $GITHUB_STEP_SUMMARY
         env: 
