@@ -92,10 +92,3 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --sarif-file-output=snyk-results.sarif
-          
-      - name: Upload Snyk results
-        uses: actions/upload-artifact@v2
-        with:
-          name: snyk-results
-          path: snyk-results.sarif
-          retention-days: 5
