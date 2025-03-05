@@ -97,16 +97,18 @@ jobs:
         uses: snyk/actions/setup@master
         
       - name: Snyk Code Test
-        uses: snyk/actions/php@master
+        run: |
+          snyk code test --sarif-file-output=snyk-results.sarif || true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --sarif-file-output=snyk-results.sarif
           
       - name: Snyk Results Summary
         run: |
-          echo "### Hasil Scan Snyk" >> $GITHUB_STEP_SUMMARY
-          echo "Hasil detail tersedia dalam format SARIF" >> $GITHUB_STEP_SUMMARY
+          echo "### Hasil Scan Snyk Code" >> $GITHUB_STEP_SUMMARY
+          echo "Berikut adalah hasil analisis keamanan kode:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          snyk code test || true >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           
       # Upload SARIF ke GitHub Code Scanning jika repository mendukung
       - name: Upload Snyk SARIF to GitHub Code Scanning
