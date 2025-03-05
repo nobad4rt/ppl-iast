@@ -79,7 +79,7 @@ jobs:
           phpstan analyse -l 5 *.php --no-progress > phpstan-output.txt || true
 
       - name: Upload PHPStan results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: phpstan-results
           path: phpstan-output.txt
