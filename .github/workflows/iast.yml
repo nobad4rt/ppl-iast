@@ -73,16 +73,17 @@ jobs:
         run: composer install --prefer-dist --no-progress || echo "No composer.json found"
 
       - name: PHPStan Static Analysis
+        id: phpstan
         run: |
-          # Jalankan analisis dan simpan output
-          phpstan analyse -l 5 *.php --no-progress || true
+          # Jalankan analisis dan simpan output ke file
+          phpstan analyse -l 5 *.php --no-progress > phpstan-output.txt || true
           
       - name: PHPStan Results Summary
         run: |
           echo "### Hasil Analisis PHPStan" >> $GITHUB_STEP_SUMMARY
           echo "Berikut adalah hasil analisis keamanan dari PHPStan:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          phpstan analyse -l 5 *.php --no-progress || true >> $GITHUB_STEP_SUMMARY
+          cat phpstan-output.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   snyk_sast:
@@ -99,36 +100,38 @@ jobs:
       - name: Snyk Code Test
         id: snyk-test
         run: |
-          snyk code test --sarif-file-output=snyk-results.sarif || true
+          # Jalankan analisis dan simpan output mentah
+          snyk code test --json > snyk-output.json || true
           echo "SNYK_EXIT_CODE=$?" >> $GITHUB_ENV
+          
+          # Tetap buat SARIF file untuk code scanning
+          snyk code test --sarif-file-output=snyk-results.sarif || true
+          
           # Periksa apakah file SARIF dibuat
-          if [ -f snyk-results.sarif ]; then
-            echo "File SARIF berhasil dibuat"
-            ls -la snyk-results.sarif
-          else
+          if [ ! -f snyk-results.sarif ]; then
             echo "File SARIF tidak ditemukan, membuat file kosong"
             echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Snyk Code","informationUri":"https://snyk.io","rules":[]}},"results":[]}]}' > snyk-results.sarif
           fi
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
           
-      - name: Show working directory contents
-        run: |
-          echo "Daftar file di direktori kerja:"
-          ls -la
-          
       - name: Snyk Results Summary
         run: |
           echo "### Hasil Scan Snyk Code" >> $GITHUB_STEP_SUMMARY
           echo "Berikut adalah hasil analisis keamanan kode:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          if [ "$SNYK_EXIT_CODE" != "0" ]; then
-            echo "Snyk scan menemui error atau kerentanan" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Tidak ada kerentanan yang ditemukan oleh Snyk" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo '```' >> $GITHUB_STEP_SUMMARY
           
+          # Tampilkan hasil Snyk secara langsung
+          snyk code test || true >> $GITHUB_STEP_SUMMARY
+          
+          # Tambahan informasi dari hasil JSON jika tersedia
+          if [ -f snyk-output.json ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Detail kerentanan:" >> $GITHUB_STEP_SUMMARY
+            jq -r '.vulnerabilities[] | "- " + .title + " (" + .severity + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada detail kerentanan yang tersedia" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo '```' >> $GITHUB_STEP_SUMMARY
       # Upload SARIF ke GitHub Code Scanning jika repository mendukung
       - name: Upload Snyk SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
