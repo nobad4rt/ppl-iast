@@ -77,14 +77,6 @@ jobs:
         run: |
           # Jalankan analisis dan simpan output ke file
           phpstan analyse -l 5 *.php --no-progress > phpstan-output.txt || true
-          
-      - name: PHPStan Results Summary
-        run: |
-          echo "### Hasil Analisis PHPStan" >> $GITHUB_STEP_SUMMARY
-          echo "Berikut adalah hasil analisis keamanan dari PHPStan:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat phpstan-output.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
 
   snyk_sast:
     name: Snyk Security Scan
@@ -112,30 +104,9 @@ jobs:
             echo "File SARIF tidak ditemukan, membuat file kosong"
             echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Snyk Code","informationUri":"https://snyk.io","rules":[]}},"results":[]}]}' > snyk-results.sarif
           fi
-
-          echo "### Hasil Scan Snyk Code" >> $GITHUB_STEP_SUMMARY
-          echo "Berikut adalah hasil analisis keamanan kode:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          
-          # Tampilkan hasil Snyk secara langsung
-          snyk code test || true >> $GITHUB_STEP_SUMMARY
-          
-          # Tampilkan hasil dalam format yang lebih terstruktur
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Detail Kerentanan" >> $GITHUB_STEP_SUMMARY
-          
-          # Ekstrak dan format hasil dari SARIF
-          if jq -e '.runs[].results[]' snyk-output.json >/dev/null 2>&1; then
-            echo "Ditemukan kerentanan dalam kode:" >> $GITHUB_STEP_SUMMARY
-            jq -r '.runs[].results[] | "- **" + (.message.text // "No description") + "**\n  - Severity: " + (.level // "unknown") + "\n  - File: " + (.locations[0].physicalLocation.artifactLocation.uri // "unknown") + "\n  - Line: " + (.locations[0].physicalLocation.region.startLine // "?")' snyk-output.json >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Tidak ditemukan kerentanan dalam kode" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo '```' >> $GITHUB_STEP_SUMMARY
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          
+
       # Upload SARIF ke GitHub Code Scanning jika repository mendukung
       - name: Upload Snyk SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
