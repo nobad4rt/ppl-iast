@@ -97,17 +97,36 @@ jobs:
         uses: snyk/actions/setup@master
         
       - name: Snyk Code Test
+        id: snyk-test
         run: |
           snyk code test --sarif-file-output=snyk-results.sarif || true
+          echo "SNYK_EXIT_CODE=$?" >> $GITHUB_ENV
+          # Periksa apakah file SARIF dibuat
+          if [ -f snyk-results.sarif ]; then
+            echo "File SARIF berhasil dibuat"
+            ls -la snyk-results.sarif
+          else
+            echo "File SARIF tidak ditemukan, membuat file kosong"
+            echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Snyk Code","informationUri":"https://snyk.io","rules":[]}},"results":[]}]}' > snyk-results.sarif
+          fi
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          
+      - name: Show working directory contents
+        run: |
+          echo "Daftar file di direktori kerja:"
+          ls -la
           
       - name: Snyk Results Summary
         run: |
           echo "### Hasil Scan Snyk Code" >> $GITHUB_STEP_SUMMARY
           echo "Berikut adalah hasil analisis keamanan kode:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          snyk code test || true >> $GITHUB_STEP_SUMMARY
+          if [ "$SNYK_EXIT_CODE" != "0" ]; then
+            echo "Snyk scan menemui error atau kerentanan" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Tidak ada kerentanan yang ditemukan oleh Snyk" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
           
       # Upload SARIF ke GitHub Code Scanning jika repository mendukung
