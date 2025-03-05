@@ -74,15 +74,16 @@ jobs:
 
       - name: PHPStan Static Analysis
         run: |
-          # Menghasilkan hasil dalam format HTML
-          mkdir -p reports
-          phpstan analyse -l 5 *.php --error-format=github > reports/phpstan-results.txt || true
-
-      - name: Upload PHPStan results
-        uses: actions/upload-artifact@v2
-        with:
-          name: phpstan-results
-          path: reports/phpstan-results.txt
+          # Jalankan analisis dan simpan output
+          phpstan analyse -l 5 *.php --no-progress || true
+          
+      - name: PHPStan Results Summary
+        run: |
+          echo "### Hasil Analisis PHPStan" >> $GITHUB_STEP_SUMMARY
+          echo "Berikut adalah hasil analisis keamanan dari PHPStan:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          phpstan analyse -l 5 *.php --no-progress || true >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
   snyk_sast:
     name: Snyk Security Scan
@@ -101,12 +102,11 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --sarif-file-output=snyk-results.sarif
-
-      - name: Upload Snyk results
-        uses: actions/upload-artifact@v2
-        with:
-          name: snyk-results
-          path: snyk-results.sarif
+          
+      - name: Snyk Results Summary
+        run: |
+          echo "### Hasil Scan Snyk" >> $GITHUB_STEP_SUMMARY
+          echo "Hasil detail tersedia dalam format SARIF" >> $GITHUB_STEP_SUMMARY
           
       # Upload SARIF ke GitHub Code Scanning jika repository mendukung
       - name: Upload Snyk SARIF to GitHub Code Scanning
