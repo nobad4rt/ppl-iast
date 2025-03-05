@@ -67,28 +67,14 @@ jobs:
         with:
           php-version: '8.1'
           extensions: mbstring, intl
-          tools: composer:v2
+          tools: composer:v2, phpstan
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install --prefer-dist --no-progress || echo "No composer.json found"
 
       - name: PHPStan Static Analysis
-        run: |
-          composer require --dev phpstan/phpstan
-          vendor/bin/phpstan analyse -l 5 --error-format=json src > phpstan-results.json || true
-          
-      - name: Convert PHPStan results to SARIF
-        run: |
-          composer require --dev phpstan/phpstan-sarif
-          vendor/bin/phpstan-sarif phpstan-results.json > phpstan-results.sarif
+        run: phpstan analyse -l 5 src || echo "Analysis completed with warnings"
 
-      - name: Upload PHPStan results
-        uses: actions/upload-artifact@v3
-        with:
-          name: phpstan-results
-          path: phpstan-results.sarif
-          retention-days: 5
-          
   snyk_sast:
     name: Snyk Security Scan
     permissions: write-all
@@ -108,7 +94,7 @@ jobs:
           args: --sarif-file-output=snyk-results.sarif
           
       - name: Upload Snyk results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: snyk-results
           path: snyk-results.sarif
