@@ -112,11 +112,7 @@ jobs:
             echo "File SARIF tidak ditemukan, membuat file kosong"
             echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Snyk Code","informationUri":"https://snyk.io","rules":[]}},"results":[]}]}' > snyk-results.sarif
           fi
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-          
-      - name: Snyk Results Summary
-        run: |
+
           echo "### Hasil Scan Snyk Code" >> $GITHUB_STEP_SUMMARY
           echo "Berikut adalah hasil analisis keamanan kode:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -124,34 +120,22 @@ jobs:
           # Tampilkan hasil Snyk secara langsung
           snyk code test || true >> $GITHUB_STEP_SUMMARY
           
-          # Debug: periksa isi file JSON
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Debug Output JSON" >> $GITHUB_STEP_SUMMARY
-          echo "Struktur JSON (key level teratas):" >> $GITHUB_STEP_SUMMARY
-          jq 'keys' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak dapat memproses file JSON" >> $GITHUB_STEP_SUMMARY
-          
-          # Coba ekstrak kerentanan dengan berbagai path yang mungkin
+          # Tampilkan hasil dalam format yang lebih terstruktur
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Detail Kerentanan" >> $GITHUB_STEP_SUMMARY
           
-          # Metode 1: Struktur standar
-          echo "Metode 1 - vulnerabilities langsung:" >> $GITHUB_STEP_SUMMARY
-          jq -r '.vulnerabilities[] | "- " + (.title // "No title") + " (" + (.severity // "unknown") + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada vulnerabilities di level atas" >> $GITHUB_STEP_SUMMARY
-          
-          # Metode 2: Struktur alternatif untuk Snyk Code
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Metode 2 - issues.vulnerabilities:" >> $GITHUB_STEP_SUMMARY
-          jq -r '.issues.vulnerabilities[] | "- " + (.title // "No title") + " (" + (.severity // "unknown") + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada issues.vulnerabilities" >> $GITHUB_STEP_SUMMARY
-          
-          # Metode 3: Struktur results seperti SARIF
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Metode 3 - results:" >> $GITHUB_STEP_SUMMARY
-          jq -r '.runs[].results[] | "- " + (.message.text // "No description") + " (severity level: " + (.level // "unknown") + ")"' snyk-output.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "Tidak ada struktur results" >> $GITHUB_STEP_SUMMARY
+          # Ekstrak dan format hasil dari SARIF
+          if jq -e '.runs[].results[]' snyk-output.json >/dev/null 2>&1; then
+            echo "Ditemukan kerentanan dalam kode:" >> $GITHUB_STEP_SUMMARY
+            jq -r '.runs[].results[] | "- **" + (.message.text // "No description") + "**\n  - Severity: " + (.level // "unknown") + "\n  - File: " + (.locations[0].physicalLocation.artifactLocation.uri // "unknown") + "\n  - Line: " + (.locations[0].physicalLocation.region.startLine // "?")' snyk-output.json >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Tidak ditemukan kerentanan dalam kode" >> $GITHUB_STEP_SUMMARY
+          fi
           
           echo '```' >> $GITHUB_STEP_SUMMARY
-        env: 
+        env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
+          
       # Upload SARIF ke GitHub Code Scanning jika repository mendukung
       - name: Upload Snyk SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
