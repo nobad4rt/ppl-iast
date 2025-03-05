@@ -73,7 +73,9 @@ jobs:
         run: composer install --prefer-dist --no-progress || echo "No composer.json found"
 
       - name: PHPStan Static Analysis
-        run: phpstan analyse -l 5 src || echo "Analysis completed with warnings"
+        run: |
+          # Analisis file PHP di direktori root
+          phpstan analyse -l 5 *.php || echo "Analysis completed with warnings"
 
   snyk_sast:
     name: Snyk Security Scan
